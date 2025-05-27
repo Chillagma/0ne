@@ -14,7 +14,7 @@
     { yaw: Math.PI / 2, pitch: 0, roll: Math.PI / 4, zoom: 1.5, x: 2, y: 0, vx: 2, vy: -1.8 },
     { yaw: 0, pitch: Math.PI / 2, roll: 0, zoom: 1.2, x: 0, y: 1, vx: -2, vy: 1.2 },
     { yaw: Math.PI / 3, pitch: Math.PI / 4, roll: Math.PI / 6, zoom: 0.9, x: 1, y: 1, vx: 1.5, vy: -1.5 }
-];
+];      
         let objects = [];
         for (let i = 0; i < 20; i++) {
             objects.push({
@@ -40,7 +40,7 @@
         }
     });
 
-    // Smooth zoom animation with more pronounced zoom in/out
+    // Smooth zoom attack animation with more pronounced zoom in/out
     function updateZoom() {
         const zoomInTarget = 3;   // Increase this for more zoom in
         const zoomOutTarget = 0.5; // Decrease this for more zoom out (but not below 0)
@@ -155,7 +155,7 @@
             
                     attackProgress += (attackTarget - attackProgress) * 0.1;
        
-            //where you put the sword on screen after you left mouse click
+            //attack animation where you put the sword on screen after you left mouse click
         if (attackProgress > 0.01) {
             let swing = (Math.sin(attackProgress *zoom_attack* Math.PI / 2) + 1) / 2;
 
