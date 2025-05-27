@@ -260,22 +260,58 @@ function createWavyClipPath(ctx, x, y, width, height, time) {
             requestAnimationFrame(animate);
         }
 
-        fetch('cube.obj')
-            .then(response => response.text())
-            .then(text => {
-                text.trim().split("\n").forEach(line => {
-                    let parts = line.trim().split(/\s+/);
-                    if (parts[0] === "v") {
-                        vertices.push(parts.slice(1).map(Number));
-                    } else if (parts[0] === "f") {
-                        let indices = parts.slice(1).map(n => parseInt(n) - 1);
-                        for (let i = 1; i < indices.length - 1; i++) {
-                            faces.push([indices[0], indices[i], indices[i + 1]]);
+        const objFiles = ["enemy.obj", "enemy2.obj", "enemy3.obj"];
+        let animationFrames = [];
+        let currentFrame = 0;
+        let frameTime = 0;
+        const frameDuration = 0.2; // seconds per frame
+
+        function loadOBJ(url) {
+            return fetch(url)
+                .then(response => response.text())
+                .then(text => {
+                    let verts = [];
+                    let facs = [];
+                    text.trim().split("\n").forEach(line => {
+                        let parts = line.trim().split(/\s+/);
+                        if (parts[0] === "v") {
+                            verts.push(parts.slice(1).map(Number));
+                        } else if (parts[0] === "f") {
+                            let indices = parts.slice(1).map(n => parseInt(n) - 1);
+                            for (let i = 1; i < indices.length - 1; i++) {
+                                facs.push([indices[0], indices[i], indices[i + 1]]);
+                            }
                         }
-                    }
+                    });
+                    return { verts, facs };
                 });
-                animate();
-            });
+        }
+
+        // Load all animation frames
+        Promise.all(objFiles.map(loadOBJ)).then(frames => {
+            animationFrames = frames;
+            // Use faces from the first frame (assuming topology is the same)
+            faces = animationFrames[0].facs;
+            vertices = animationFrames[0].verts;
+            animate();
+        });
+
+        // Animation update
+        function updateAnimation() {
+            let now = performance.now() / 1000;
+            if (!updateAnimation.lastTime) updateAnimation.lastTime = now;
+            let delta = now - updateAnimation.lastTime;
+            updateAnimation.lastTime = now;
+
+            frameTime += delta;
+            if (frameTime > frameDuration && animationFrames.length > 1) {
+                frameTime = 0;
+                currentFrame = (currentFrame + 1) % animationFrames.length;
+                vertices = animationFrames[currentFrame].verts;
+            }
+            requestAnimationFrame(updateAnimation);
+        }
+        updateAnimation();
             //can only attack at specifi places and defend at specific places.
     </script>
 </head>
