@@ -1,0 +1,283 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <canvas id="c" width="800" height="800"></canvas>
+    <script>
+        const canvas = document.getElementById("c");
+        const ctx = canvas.getContext("2d");
+
+        let yaw = 0, pitch = 0, roll = 0, scale = 1;
+        let cameras = [
+               { yaw: 0, pitch: 0, roll: 0, zoom: 1, x: 100, y: 100, vx: 2, vy: 1.5 },
+    { yaw: Math.PI / 4, pitch: Math.PI / 8, roll: 0, zoom: 0.7, x: 300, y: 200, vx: -1.5, vy: 2 },
+    { yaw: Math.PI / 2, pitch: 0, roll: Math.PI / 4, zoom: 1.5, x: 500, y: 400, vx: 2, vy: -1.8 },
+    { yaw: 0, pitch: Math.PI / 2, roll: 0, zoom: 1.2, x: 600, y: 100, vx: -2, vy: 1.2 }
+        ];
+
+        let objects = [];
+        for (let i = 0; i < 20; i++) {
+            objects.push({
+                x: Math.random() * 800 - 400,
+                y: Math.random() * 800 - 400,
+                z: Math.random() * 800 - 400
+            });
+        }
+
+        let vertices = [];
+        let faces = [];
+
+        let attackProgress = 0;
+        let attackTarget = 0;
+        let zoom_attack = 1;
+
+           let zoom_trigger =false;
+
+    document.addEventListener("mousedown", (e) => {
+        if (e.button === 0) {
+            attackTarget = 4;
+            zoom_trigger = true;
+        }
+    });
+
+    // Smooth zoom animation with more pronounced zoom in/out
+    function updateZoom() {
+        const zoomInTarget = 3;   // Increase this for more zoom in
+        const zoomOutTarget = 0.5; // Decrease this for more zoom out (but not below 0)
+        if (zoom_trigger) {
+            // Smoothly zoom in
+            zoom_attack += (zoomInTarget - zoom_attack) * 0.35;
+            if (Math.abs(zoom_attack - zoomInTarget) < 0.11) {
+                zoom_attack = zoomInTarget;
+                zoom_trigger = false;
+            }
+        } else {
+            // Smoothly zoom out to normal (zoomOutTarget)
+            zoom_attack += (1 - zoom_attack) * 0.3;
+            if (Math.abs(zoom_attack - 1) < 0.11) {
+                zoom_attack = 1;
+            }
+        }
+        requestAnimationFrame(updateZoom);
+    }
+    updateZoom();
+        document.addEventListener("keydown", (e) => {
+            if (e.key === "a") yaw -= 0.05;
+            if (e.key === "d") yaw += 0.05;
+            if (e.key === "w") pitch -= 0.05;
+            if (e.key === "s") pitch += 0.05;
+            if (e.key === "q") roll -= 0.05;
+            if (e.key === "e") roll += 0.05;
+            if (e.key === "+") scale += 0.1;
+            if (e.key === "-") scale -= 0.1;
+            
+        });
+
+        function rotate3D(x, y, z, camYaw, camPitch, camRoll) {
+            let tempX, tempY, tempZ;
+
+            let yawTotal = yaw + camYaw;
+            let pitchTotal = pitch + camPitch;
+            let rollTotal = roll + camRoll;
+
+            tempX = Math.cos(yawTotal) * x - Math.sin(yawTotal) * z;
+            tempZ = Math.sin(yawTotal) * x + Math.cos(yawTotal) * z;
+            x = tempX; z = tempZ;
+
+            tempY = Math.cos(pitchTotal) * y - Math.sin(pitchTotal) * z;
+            tempZ = Math.sin(pitchTotal) * y + Math.cos(pitchTotal) * z;
+            y = tempY; z = tempZ;
+
+            tempX = Math.cos(rollTotal) * x - Math.sin(rollTotal) * y;
+            tempY = Math.sin(rollTotal) * x + Math.cos(rollTotal) * y;
+            x = tempX; y = tempY;
+
+            return { x, y, z };
+        }
+
+        function drawScene(cam, width, height) {
+            ctx.save();
+            ctx.translate(width / 2, height / 2);
+
+            for (let obj of objects) {
+                let { x, y, z } = rotate3D(obj.x, obj.y, obj.z, cam.yaw, cam.pitch, cam.roll);
+                let size = 1 / (1 + z / 500);
+                let finalScale = scale * cam.zoom * size * 0.5;
+
+                ctx.save();
+                ctx.translate(x * finalScale, y * finalScale);
+                ctx.scale(finalScale, finalScale);
+
+                ctx.beginPath();
+                ctx.moveTo(0, -50);
+                ctx.lineTo(50, 50);
+                ctx.lineTo(-50, 50);
+                ctx.closePath();
+                ctx.fillStyle = "blue";
+                ctx.fill();
+                ctx.restore();
+            }
+
+            if (vertices.length && faces.length) {
+                let projected = vertices.map(v => {
+                    let rotated = rotate3D(v[0], v[1], v[2], cam.yaw, cam.pitch, cam.roll);
+                    let size = 1 / (1 + rotated.z + 11 / 500) * zoom_attack;
+                    let time = performance.now() / 1000;
+                    let useFirstFormula = Math.floor(time / 3) % 2 === 0;
+
+                    if (useFirstFormula) {
+                        size = 1 / (1 + rotated.z / 500) * zoom_attack;
+                    } else {
+                        size = 1 / (1 + rotated.z+Math.atan(rotated.x)  / 500) * zoom_attack;
+                    }
+
+                    let finalScale = scale * size * cam.zoom;
+                    return { x: rotated.x * finalScale, y: rotated.y * finalScale };
+                });
+
+                for (let f of faces) {
+                    ctx.beginPath();
+                    let p0 = projected[f[0]];
+                    let p1 = projected[f[1]];
+                    let p2 = projected[f[2]];
+                    ctx.moveTo(p0.x * 50, p0.y * 50);
+                    ctx.lineTo(p1.x * 50, p1.y * 50);
+                    ctx.lineTo(p2.x * 50, p2.y * 50);
+                    ctx.closePath();
+                    ctx.fillStyle = "rgba(0,0,255,0.5)";
+                    ctx.fill();
+                    ctx.strokeStyle = "black";
+                    ctx.stroke();
+                }
+            }
+
+            attackProgress += (attackTarget - attackProgress) * 0.1;
+            
+ attackProgress += (attackTarget - attackProgress) * 0.1;
+       
+
+        if (attackProgress > 0.01) {
+            let swing = (Math.sin(attackProgress *zoom_attack* Math.PI / 2) + 1) / 2;
+
+            ctx.save();
+            ctx.translate(0, height / 2 - 100);
+            ctx.rotate(swing * 65 * Math.PI / 180);
+
+            ctx.beginPath();
+            ctx.arc(0, 0, 5, 0, Math.PI * 2);
+            ctx.fillStyle = "black";
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(0, -50);
+            ctx.strokeStyle = "black";
+            ctx.lineWidth = 4;
+            ctx.stroke();
+
+            ctx.fillStyle = "silver";
+            ctx.fillRect(-5, -50, 10, -500);
+
+            ctx.restore();
+        }
+
+       
+            attackTarget *= 0.95;
+
+            ctx.restore();
+
+            ctx.fillStyle = "black";
+            ctx.font = "16px sans-serif";
+            ctx.fillText(`Camera yaw:${(cam.yaw).toFixed(2)} pitch:${(cam.pitch).toFixed(2)} roll:${(cam.roll).toFixed(2)} zoom:${cam.zoom}`, 10 - width / 2, 20 - height / 2);
+        }
+
+        // Create a wavy polygon clip path
+        // x, y = top-left corner, width, height of viewport
+        // time = animation time in seconds
+
+
+function createWavyClipPath(ctx, x, y, width, height, time) {
+    const pointsCount = 8; // Number of vertices for polygon (should be even)
+    const waveAmplitude = 15; // Max wave displacement in pixels
+    const waveFrequency = 2; // Number of waves around polygon
+    ctx.beginPath();
+
+    for (let i = 0; i < pointsCount; i++) {
+        // Angle around the polygon (0 to 2PI)
+        const angle = (i / pointsCount) * Math.PI * 2;
+        // Base polygon radius to fit inside rectangle
+        // Let's create a rounded rectangle-like shape but with wave deformation
+        // radius based on width and height (take average)
+        const baseRadius = Math.min(width, height) / 2;
+
+        // Wave offset for animation
+        const waveOffset = Math.sin(time * 3 + i * (Math.PI * 2 / pointsCount) * waveFrequency) * waveAmplitude;
+
+        // Calculate polar radius with wave
+        const radius = baseRadius + waveOffset;
+
+        // Convert polar to Cartesian coords relative to viewport center
+        let px = x + width / 2 + Math.cos(angle) * radius;
+        let py = y + height / 2 + Math.sin(angle) * radius;
+
+        if (i === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+    }
+    ctx.closePath();
+}
+
+        function animate() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            let w = canvas.width / 2;
+            let h = canvas.height / 2;
+
+            let time = performance.now() / 1000;
+
+            for (let i = 0; i < cameras.length; i++) {
+                let x = (i % 2) * w;
+                let y = Math.floor(i / 2) * h;
+
+                ctx.save();
+
+                // Create animated wavy clip path instead of simple rectangle
+                createWavyClipPath(ctx, x, y, w, h, time);
+                ctx.clip();
+
+                ctx.translate(x, y);
+                drawScene(cameras[i], w, h);
+
+                ctx.restore();
+
+                // Draw viewport border with the same wavy shape outline
+                ctx.save();
+                ctx.strokeStyle = "black";
+                ctx.lineWidth = 2;
+                createWavyClipPath(ctx, x, y, w, h, time);
+                ctx.stroke();
+                ctx.restore();
+            }
+
+            requestAnimationFrame(animate);
+        }
+
+        fetch('cube.obj')
+            .then(response => response.text())
+            .then(text => {
+                text.trim().split("\n").forEach(line => {
+                    let parts = line.trim().split(/\s+/);
+                    if (parts[0] === "v") {
+                        vertices.push(parts.slice(1).map(Number));
+                    } else if (parts[0] === "f") {
+                        let indices = parts.slice(1).map(n => parseInt(n) - 1);
+                        for (let i = 1; i < indices.length - 1; i++) {
+                            faces.push([indices[0], indices[i], indices[i + 1]]);
+                        }
+                    }
+                });
+                animate();
+            });
+            //can only attack at specifi places and defend at specific places.
+    </script>
+</head>
+<body></body>
+</html>

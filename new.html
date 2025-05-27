@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8" />
+    <title>3D Perspective Viewports</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background: #eee;
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+            background: white;
+            box-shadow: 0 0 20px rgba(0,0,0,0.2);
+        }
+    </style>
+</head>
+<body>
+<canvas id="c" width="800" height="800"></canvas>
+<script>
+    const canvas = document.getElementById("c");
+    const ctx = canvas.getContext("2d");
+
+    let yaw = 0, pitch = 0, roll = 0, scale = 1;
+    let cameras = [
+        { yaw: 0, pitch: 0, roll: 0, zoom: 1 },
+        { yaw: Math.PI / 4, pitch: Math.PI / 8, roll: 0, zoom: 0.7 },
+        { yaw: Math.PI / 2, pitch: 0, roll: Math.PI / 4, zoom: 1.5 },
+        { yaw: 0, pitch: Math.PI / 2, roll: 0, zoom: 1.2 }
+    ];
+
+    let objects = [];
+    for (let i = 0; i < 20; i++) {
+        objects.push({
+            x: Math.random() * 800 - 400,
+            y: Math.random() * 800 - 400,
+            z: Math.random() * 800 - 400
+        });
+    }
+
+    let vertices = [];
+    let faces = [];
+
+    let attackProgress = 0;
+    let attackTarget = 0;
+    let zoom_attack = 1;
+
+    document.addEventListener("mousedown", (e) => {
+        if (e.button === 0) {
+            attackTarget = 1;
+            zoom_attack += (5 - zoom_attack) * 4.5;
+        }
+    });
+
+    document.addEventListener("keydown", (e) => {
+        if (e.key === "a") yaw -= 0.05;
+        if (e.key === "d") yaw += 0.05;
+        if (e.key === "w") pitch -= 0.05;
+        if (e.key === "s") pitch += 0.05;
+        if (e.key === "q") roll -= 0.05;
+        if (e.key === "e") roll += 0.05;
+        if (e.key === "+") scale += 0.1;
+        if (e.key === "-") scale -= 0.1;
+        if (e.key === " ") zoom_attack += 0.5;
+    });
+
+    function rotate3D(x, y, z, camYaw, camPitch, camRoll) {
+        let tempX, tempY, tempZ;
+
+        let yawTotal = yaw + camYaw;
+        let pitchTotal = pitch + camPitch;
+        let rollTotal = roll + camRoll;
+
+        tempX = Math.cos(yawTotal) * x - Math.sin(yawTotal) * z;
+        tempZ = Math.sin(yawTotal) * x + Math.cos(yawTotal) * z;
+        x = tempX; z = tempZ;
+
+        tempY = Math.cos(pitchTotal) * y - Math.sin(pitchTotal) * z;
+        tempZ = Math.sin(pitchTotal) * y + Math.cos(pitchTotal) * z;
+        y = tempY; z = tempZ;
+
+        tempX = Math.cos(rollTotal) * x - Math.sin(rollTotal) * y;
+        tempY = Math.sin(rollTotal) * x + Math.cos(rollTotal) * y;
+        x = tempX; y = tempY;
+
+        return { x, y, z };
+    }
+
+    function drawScene(cam, width, height) {
+        ctx.save();
+        ctx.translate(width / 2, height / 2);
+
+        for (let obj of objects) {
+            let { x, y, z } = rotate3D(obj.x, obj.y, obj.z, cam.yaw, cam.pitch, cam.roll);
+            let size = 1 / (1 + z / 500);
+            let finalScale = scale * cam.zoom * size * 0.5;
+
+            ctx.save();
+            ctx.translate(x * finalScale, y * finalScale);
+            ctx.scale(finalScale, finalScale);
+
+            ctx.beginPath();
+            ctx.moveTo(0, -50);
+            ctx.lineTo(50, 50);
+            ctx.lineTo(-50, 50);
+            ctx.closePath();
+            ctx.fillStyle = "blue";
+            ctx.fill();
+            ctx.restore();
+        }
+
+        if (vertices.length && faces.length) {
+            let projected = vertices.map(v => {
+                let rotated = rotate3D(v[0], v[1], v[2], cam.yaw, cam.pitch, cam.roll);
+                let size = 1 / (1 + rotated.z + 11 / 500) * zoom_attack;
+                let time = performance.now() / 1000;
+                let useFirstFormula = Math.floor(time / 3) % 2 === 0;
+
+                if (useFirstFormula) {
+                    size = 1 / (1 + rotated.z / 500) * zoom_attack;
+                } else {
+                    size = 1 / (1 + rotated.z + rotated.x + rotated.y + 3 / 500) * zoom_attack;
+                }
+
+                let finalScale = scale * size * cam.zoom;
+                return { x: rotated.x * finalScale, y: rotated.y * finalScale };
+            });
+
+            for (let f of faces) {
+                ctx.beginPath();
+                let p0 = projected[f[0]];
+                let p1 = projected[f[1]];
+                let p2 = projected[f[2]];
+                ctx.moveTo(p0.x * 50, p0.y * 50);
+                ctx.lineTo(p1.x * 50, p1.y * 50);
+                ctx.lineTo(p2.x * 50, p2.y * 50);
+                ctx.closePath();
+                ctx.fillStyle = "rgba(0,0,255,0.5)";
+                ctx.fill();
+                ctx.strokeStyle = "black";
+                ctx.stroke();
+            }
+        }
+
+        attackProgress += (attackTarget - attackProgress) * 0.1;
+        zoom_attack += (1 - zoom_attack) * 0.1;
+
+        if (attackProgress > 0.01) {
+            let swing = (Math.sin(attackProgress * Math.PI / 2) + 1) / 2;
+
+            ctx.save();
+            ctx.translate(0, height / 2 - 100);
+            ctx.rotate(swing * 65 * Math.PI / 180);
+
+            ctx.beginPath();
+            ctx.arc(0, 0, 5, 0, Math.PI * 2);
+            ctx.fillStyle = "black";
+            ctx.fill();
+
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(0, -50);
+            ctx.strokeStyle = "black";
+            ctx.lineWidth = 4;
+            ctx.stroke();
+
+            ctx.fillStyle = "silver";
+            ctx.fillRect(-5, -50, 10, -500);
+
+            ctx.restore();
+        }
+
+        attackTarget *= 0.95;
+
+        ctx.restore();
+
+        ctx.fillStyle = "black";
+        ctx.font = "16px sans-serif";
+        ctx.fillText(`Camera yaw:${(cam.yaw).toFixed(2)} pitch:${(cam.pitch).toFixed(2)} roll:${(cam.roll).toFixed(2)} zoom:${cam.zoom}`, 10 - width / 2, 20 - height / 2);
+    }
+
+    // Helper: project 3D point to 2D with perspective
+    function projectPoint3D(point3D, viewerDistance) {
+        // viewerDistance controls perspective intensity
+        let scale = viewerDistance / (viewerDistance + point3D.z);
+        return { x: point3D.x * scale, y: point3D.y * scale };
+    }
+
+    // Create 4 corners of a viewport in 3D space, then project them to 2D canvas points
+    // We will tilt each viewport slightly with rotation around X and Y axis
+    // Returns array of 4 2D points in clockwise order
+    function getViewportCorners3D(x, y, w, h, time, index) {
+        // Center of viewport in 3D space
+        let cx = x + w / 2;
+        let cy = y + h / 2;
+        let cz = 0;
+
+        // Convert viewport rectangle corners relative to center
+        let corners = [
+            { x: -w/2, y: -h/2, z: 0 }, // top-left
+            { x:  w/2, y: -h/2, z: 0 }, // top-right
+            { x:  w/2, y:  h/2, z: 0 }, // bottom-right
+            { x: -w/2, y:  h/2, z: 0 }  // bottom-left
+        ];
+
+        // Animate some rotation for each viewport to tilt in 3D
+        // Let's do a small rotation oscillation in X and Y axes
+        let angleX = Math.sin(time + index * 1.5) * 0.3; // tilt up/down
+        let angleY = Math.cos(time + index * 1.5) * 0.3; // tilt left/right
+
+        // Rotation matrices for X and Y axis rotations
+        function rotateX(p, angle) {
+            let cosA = Math.cos(angle), sinA = Math.sin(angle);
+            return {
+                x: p.x,
+                y: p.y * cosA - p.z * sinA,
+                z: p.y * sinA + p.z * cosA
+            };
+        }
+        function rotateY(p, angle) {
+            let cosA = Math.cos(angle), sinA = Math.sin(angle);
+            return {
+                x: p.x * cosA + p.z * sinA,
+                y: p.y,
+                z: -p.x * sinA + p.z * cosA
+            };
+        }
+
+        let transformed = corners.map(p => {
+            // Rotate around X then Y
+            let r = rotateX(p, angleX);
+            r = rotateY(r, angleY);
+
+            // Translate back to viewport center position in 3D space
+            return {
+                x: r.x + cx,
+                y: r.y + cy,
+                z: r.z + cz + 300 // shift viewport forward so perspective works nicely
+            };
+        });
+
+        // Project 3D points to 2D canvas space
+        let viewerDist = 800;
+        let projected = transformed.map(p => {
+            let proj = projectPoint3D(p, viewerDist);
+            // Adjust for canvas coordinate system (y down)
+            return { x: proj.x, y: proj.y };
+        });
+
+        return projected;
+    }
+
+    // Draw a polygon path from array of points
+    function drawPolygonPath(ctx, points) {
+        ctx.beginPath();
+        points.forEach((p, i) => {
+            if (i === 0) ctx.moveTo(p.x, p.y);
+            else ctx.lineTo(p.x, p.y);
+        });
+        ctx.closePath();
+    }
+
+    // Draw the scene inside a 3D perspective viewport polygon
+    function draw3DViewport(cam, x, y, w, h, time, index) {
+        // 1. Compute 3D polygon corners & projected 2D points
+        let corners2D = getViewportCorners3D(x, y, w, h, time, index);
+
+        // 2. Clip to the polygon defined by these 4 points
+        ctx.save();
+
+        // Clip polygon path
+        drawPolygonPath(ctx, corners2D);
+        ctx.clip();
+
+        // 3. Calculate a transform that maps the original rectangle viewport
+        // (0,0) to (w,h) to the polygon corners in 2D.
+        // We want to draw the scene inside this polygon as if it were
+        // the rectangular viewport warped into the polygon.
+
+        // We'll use ctx.setTransform to approximate this warp by
+        // calculating an affine transform from rectangle to polygon's
+        // top-left, top-right, and bottom-left corners.
+        // Note: This is an affine transform, so it won't do perfect
+        // perspective warping, but it looks pretty good for small angles.
+
+        // Source rectangle corners
+        let src = [
+            {x:0, y:0},       // top-left
+            {x:w, y:0},       // top-right
+            {x:0, y:h}        // bottom-left
+        ];
+
+        // Destination polygon corners (in canvas space)
+        let dst = [
+            corners2D[0],
+            corners2D[1],
+            corners2D[3]
+        ];
+
+        // Solve affine transform matrix that maps src to dst:
+        // We want a matrix M so that M * src = dst.
+        // M = [a c e]
+        //     [b d f]
+        //     [0 0 1]
+        // Where:
+        // x' = a*x + c*y + e
+        // y' = b*x + d*y + f
+
+        // Solve for a,b,c,d,e,f:
+        // Using equations for points 0,1,2:
+        // For point 0 (0,0):
+        // e = dst[0].x
+        // f = dst[0].y
+        //
+        // For point 1 (w,0):
+        // a*w + e = dst[1].x
+        // b*w + f = dst[1].y
+        //
+        // For point 2 (0,h):
+        // c*h + e = dst[3].x
+        // d*h + f = dst[3].y
+
+        let w1 = w, h1 = h;
+        let e = dst[0].x;
+        let f = dst[0].y;
+        let a = (dst[1].x - e) / w1;
+        let b = (dst[1].y - f) / w1;
+        let c = (dst[2].x - e) / h1;
+        let d = (dst[2].y - f) / h1;
+
+        ctx.setTransform(a, b, c, d, e, f);
+
+        // 4. Draw the scene in the original rectangular viewport coords (0,0,w,h)
+        // This scene drawScene should draw into a rectangle of width w and height h centered at (0,0)
+        // Our drawScene uses center at (width/2,height/2), so translate accordingly
+        ctx.translate(w/2, h/2);
+        drawScene(cam, w, h);
+
+        ctx.restore();
+
+        // Optionally draw polygon border for clarity
+        ctx.beginPath();
+        drawPolygonPath(ctx, corners2D);
+        ctx.strokeStyle = "rgba(0,0,0,0.3)";
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    }
+
+    function loop(t=0) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // Draw 4 viewports arranged in a 2x2 grid
+        // each 400x400, with some margin
+        let viewportSize = 380;
+        let margin = 10;
+
+        let time = performance.now() / 1000;
+
+        draw3DViewport(cameras[0], margin, margin, viewportSize, viewportSize, time, 0);
+        draw3DViewport(cameras[1], margin * 2 + viewportSize, margin, viewportSize, viewportSize, time, 1);
+        draw3DViewport(cameras[2], margin, margin * 2 + viewportSize, viewportSize, viewportSize, time, 2);
+        draw3DViewport(cameras[3], margin * 2 + viewportSize, margin * 2 + viewportSize, viewportSize, viewportSize, time, 3);
+
+        requestAnimationFrame(loop);
+    }
+
+    loop();
+    Y
+
+</script>
+</body>
+</html>
