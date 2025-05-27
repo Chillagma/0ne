@@ -8,13 +8,12 @@
 
         let yaw = 0, pitch = 0, roll = 0, scale = 1;
         let cameras = [
-            //zoom x y vy vx is for view port. yaw pitch roll is for rotation within the canvas
-               { yaw: 0, pitch: 0, roll: 0, zoom: 1, x: 100, y: 100, vx: 2, vy: 1.5 },
-    { yaw: Math.PI / 4, pitch: Math.PI / 8, roll: 0, zoom: 0.7, x: 300, y: 200, vx: -1.5, vy: 2 },
-    { yaw: Math.PI / 2, pitch: 0, roll: Math.PI / 4, zoom: 1.5, x: 500, y: 400, vx: 2, vy: -1.8 },
-    { yaw: 0, pitch: Math.PI / 2, roll: 0, zoom: 1.2, x: 600, y: 100, vx: -2, vy: 1.2 }
-        ];
-
+    { yaw: 0, pitch: 0, roll: 0, zoom: 1, x: 0, y: 0, vx: 2, vy: 1.5 },
+    { yaw: Math.PI / 4, pitch: Math.PI / 8, roll: 0, zoom: 0.7, x: 1, y: 0, vx: -1.5, vy: 2 },
+    { yaw: Math.PI / 2, pitch: 0, roll: Math.PI / 4, zoom: 1.5, x: 2, y: 0, vx: 2, vy: -1.8 },
+    { yaw: 0, pitch: Math.PI / 2, roll: 0, zoom: 1.2, x: 0, y: 1, vx: -2, vy: 1.2 },
+    { yaw: Math.PI / 3, pitch: Math.PI / 4, roll: Math.PI / 6, zoom: 0.9, x: 1, y: 1, vx: 1.5, vy: -1.5 }
+];
         let objects = [];
         for (let i = 0; i < 20; i++) {
             objects.push({
@@ -225,18 +224,19 @@ function createWavyClipPath(ctx, x, y, width, height, time) {
     }
     ctx.closePath();
 }
-
+        //make the windows wavy
         function animate() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-            let w = canvas.width / 2;
-            let h = canvas.height / 2;
+            let cols = 2;
+            let rows = 2;
+            let w = canvas.width / cols;
+            let h = canvas.height / rows;
 
             let time = performance.now() / 1000;
 
             for (let i = 0; i < cameras.length; i++) {
-                let x = (i % 2) * w;
-                let y = Math.floor(i / 2) * h;
+                let x = cameras[i].x * w;
+                let y = cameras[i].y * h;
 
                 ctx.save();
 
