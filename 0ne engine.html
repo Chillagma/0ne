@@ -8,6 +8,7 @@
 
         let yaw = 0, pitch = 0, roll = 0, scale = 1;
         let cameras = [
+            //zoom x y vy vx is for view port. yaw pitch roll is for rotation within the canvas
                { yaw: 0, pitch: 0, roll: 0, zoom: 1, x: 100, y: 100, vx: 2, vy: 1.5 },
     { yaw: Math.PI / 4, pitch: Math.PI / 8, roll: 0, zoom: 0.7, x: 300, y: 200, vx: -1.5, vy: 2 },
     { yaw: Math.PI / 2, pitch: 0, roll: Math.PI / 4, zoom: 1.5, x: 500, y: 400, vx: 2, vy: -1.8 },
@@ -93,16 +94,16 @@
 
             return { x, y, z };
         }
-
+         //this where you draw the triangles
         function drawScene(cam, width, height) {
             ctx.save();
             ctx.translate(width / 2, height / 2);
-
+            
             for (let obj of objects) {
                 let { x, y, z } = rotate3D(obj.x, obj.y, obj.z, cam.yaw, cam.pitch, cam.roll);
                 let size = 1 / (1 + z / 500);
                 let finalScale = scale * cam.zoom * size * 0.5;
-
+               
                 ctx.save();
                 ctx.translate(x * finalScale, y * finalScale);
                 ctx.scale(finalScale, finalScale);
@@ -123,13 +124,13 @@
                     let size = 1 / (1 + rotated.z + 11 / 500) * zoom_attack;
                     let time = performance.now() / 1000;
                     let useFirstFormula = Math.floor(time / 3) % 2 === 0;
-
+                    //attack mode and non attack mode
                     if (useFirstFormula) {
                         size = 1 / (1 + rotated.z / 500) * zoom_attack;
                     } else {
                         size = 1 / (1 + rotated.z+Math.atan(rotated.x)  / 500) * zoom_attack;
                     }
-
+                    //dealing with rotations
                     let finalScale = scale * size * cam.zoom;
                     return { x: rotated.x * finalScale, y: rotated.y * finalScale };
                 });
@@ -149,12 +150,12 @@
                     ctx.stroke();
                 }
             }
-
-            attackProgress += (attackTarget - attackProgress) * 0.1;
+                //attack animations
+                    attackProgress += (attackTarget - attackProgress) * 0.1;
             
- attackProgress += (attackTarget - attackProgress) * 0.1;
+                    attackProgress += (attackTarget - attackProgress) * 0.1;
        
-
+            //where you put the sword on screen after you left mouse click
         if (attackProgress > 0.01) {
             let swing = (Math.sin(attackProgress *zoom_attack* Math.PI / 2) + 1) / 2;
 
@@ -194,7 +195,7 @@
         // x, y = top-left corner, width, height of viewport
         // time = animation time in seconds
 
-
+//this creates the windows to be wavy
 function createWavyClipPath(ctx, x, y, width, height, time) {
     const pointsCount = 8; // Number of vertices for polygon (should be even)
     const waveAmplitude = 15; // Max wave displacement in pixels
@@ -259,7 +260,7 @@ function createWavyClipPath(ctx, x, y, width, height, time) {
 
             requestAnimationFrame(animate);
         }
-
+        //obj loader
         const objFiles = ["cube.obj", "cube.obj", "cube.obj"];
         let animationFrames = [];
         let currentFrame = 0;
@@ -312,6 +313,7 @@ function createWavyClipPath(ctx, x, y, width, height, time) {
             requestAnimationFrame(updateAnimation);
         }
         updateAnimation();
+            //idea for gameplay...
             //can only attack at specifi places and defend at specific places.
     </script>
 </head>
